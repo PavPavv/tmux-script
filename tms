@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+
+# Если передано название сессии, то использовать его, если нет,
+# то по умолчанию взять название "delta"
+session_name="delta"
+kill_mode=false
+
+# Разбор аргументов
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -k|--kill)
+      kill_mode=true
+      shift
+      ;;
+    *)
+      session_name="$1"
+      shift
+      ;;
+  esac
+done
+
+# Режим выключения сессии
+if $kill_mode; then
+  if tmux has -t "$session_name" 2>/dev/null; then
+    tmux kill-session -t "$session_name"
+    echo "Сессия '$session_name' выключена."
+  else
+    echo "Сессия '$session_name' не существует."
+  fi
+  exit 0
+fi
+
+if tmux has -t "$session_name" 2>/dev/null; then
+  echo "Session '$session_name' уже существует. Подключаюсь..."
+  tmux attach-session -t "$session_name"
+  exit 0
+fi
+
+# Экран разделен на 2 части вертикально, на 40% и 60%
+# Левая, малая вертикальная часть:
+# Окно №1 (для mc)
+# Окно №2 (под ним, для htop)
+
+# Правая, бОльшая вертикальная часть:
+# Окно №3 (справа, сверху)
+# Окно №4 (спрва, снизу)
+
+
+# Создать новую сессию tmux и окно с именем "editor"
+tmux new-session -d -s "$session_name" -n "main"
+
+# Делим вертикально: левая часть 40%, правая 60%
+tmux split-window -h -p 70 -t "$session_name:main"
+
+# Левая часть: делим верх/низ
+tmux split-window -v -t "$session_name:main.0"
+
+# Левая верхняя — mc
+tmux send-keys -t "$session_name:main.0" "cd /home/pav/Documents/engineering/programming/projects" C-m
+tmux send-keys -t "$session_name:main.0" "mc" C-m
+
+# Левая нижняя — htop
+tmux send-keys -t "$session_name:main.1" "htop" C-m
+
+tmux select-pane -t "$session_name:main.2"
+tmux send-keys -t "$session_name:main.2" "cd /home/pav/Documents/engineering/programming/projects" C-m
+tmux send-keys -t "$session_name:main.2" "clear" C-m
+
+# Правая часть: делим верх/низ
+tmux split-window -v -t "$session_name:main.2"
+
+tmux select-pane -t "$session_name:main.3"
+tmux send-keys -t "$session_name:main.3" "cd /home/pav/Documents/engineering/programming/projects" C-m
+tmux send-keys -t "$session_name:main.3" "clear" C-m
+
+tmux attach -t "$session_name"
+
+
