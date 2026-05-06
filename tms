@@ -1,9 +1,30 @@
 #!/usr/bin/env bash
 
 # Если передано название сессии, то использовать его, если нет,
-# то по умолчанию взять название "delta"
-session_name="delta"
+# то по умолчанию взять название "dev"
+config_path="$(cd "$(dirname "$0")" && pwd)/tms.config"
+session_name="dev"
 kill_mode=false
+work_dir="/home"
+work_dir_full="/home"
+
+# Читать переменные из tms.config
+# Internal Field Separator
+while IFS='=' read -r key value; do
+  [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
+  echo "Ключ: '$key', Значение: '$value'"
+  case "$key" in
+    SESSION_NAME)
+      session_name="$value"
+      ;;
+    WORK_DIR)
+      work_dir="$value"
+      ;;
+    WORK_DIR_FULL)
+      work_dir_full="$value"
+      ;;
+  esac  
+done < "$config_path"
 
 # Разбор аргументов
 while [[ $# -gt 0 ]]; do
@@ -36,7 +57,8 @@ if tmux has -t "$session_name" 2>/dev/null; then
   exit 0
 fi
 
-# Экран разделен на 2 части вертикально, на 40% и 60%
+# Ожидаемый результат:
+# Экран разделен на 2 части вертикально, на 30% и 70%
 # Левая, малая вертикальная часть:
 # Окно №1 (для mc)
 # Окно №2 (под ним, для htop)
@@ -46,32 +68,32 @@ fi
 # Окно №4 (спрва, снизу)
 
 
-# Создать новую сессию tmux и окно с именем "editor"
-tmux new-session -d -s "$session_name" -n "main"
-
-# Делим вертикально: левая часть 40%, правая 60%
-tmux split-window -h -p 70 -t "$session_name:main"
+# Создать новую сессию tmux и окно с именем "main"
+tmux new-session -d -s "$session_name"
+tmux rename-window -t "$session_name:0" "main"
+tmux split-window -h -l 60 -t "$session_name:main"
 
 # Левая часть: делим верх/низ
 tmux split-window -v -t "$session_name:main.0"
 
 # Левая верхняя — mc
-tmux send-keys -t "$session_name:main.0" "cd /home/pav/Documents/engineering/programming/projects" C-m
+tmux send-keys -t "$session_name:main.0" "cd $work_dir" C-m
 tmux send-keys -t "$session_name:main.0" "mc" C-m
 
 # Левая нижняя — htop
 tmux send-keys -t "$session_name:main.1" "htop" C-m
 
 tmux select-pane -t "$session_name:main.2"
-tmux send-keys -t "$session_name:main.2" "cd /home/pav/Documents/engineering/programming/projects" C-m
+tmux send-keys -t "$session_name:main.2" "cd $work_dir_full" C-m
 tmux send-keys -t "$session_name:main.2" "clear" C-m
 
 # Правая часть: делим верх/низ
 tmux split-window -v -t "$session_name:main.2"
 
 tmux select-pane -t "$session_name:main.3"
-tmux send-keys -t "$session_name:main.3" "cd /home/pav/Documents/engineering/programming/projects" C-m
+tmux send-keys -t "$session_name:main.3" "cd $work_dir_full" C-m
 tmux send-keys -t "$session_name:main.3" "clear" C-m
+tmux send-keys -t "$session_name:main.3" "code ." C-m
 
 tmux attach -t "$session_name"
 
